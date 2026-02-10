@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Fly Me – Simple Chat</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f3f4f6;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      .chat-container {
+        width: 480px;
+        max-width: 100%;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .chat-header {
+        padding: 10px 14px;
+        background: #0052cc;
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .chat-messages {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+        background: #f9fafb;
+        font-size: 14px;
+        min-height: 300px;
+      }
+      .msg {
+        margin-bottom: 6px;
+        max-width: 80%;
+        padding: 6px 10px;
+        border-radius: 10px;
+        word-wrap: break-word;
+      }
+      .msg-user {
+        margin-left: auto;
+        background: #0052cc;
+        color: #fff;
+      }
+      .msg-bot {
+        margin-right: auto;
+        background: #e5e7eb;
+        color: #111827;
+        white-space: pre-wrap; /* Pour garder les sauts de ligne du bot */
+      }
+      .chat-input {
+        padding: 8px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        gap: 8px;
+      }
+      .chat-input textarea {
+        flex: 1;
+        resize: none;
+        height: 40px;
+        font-size: 14px;
+        padding: 6px 8px;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+      }
+      .chat-input button {
+        min-width: 70px;
+        border: none;
+        border-radius: 6px;
+        background: #10b981;
+        color: #ffffff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .chat-input button:hover {
+        background: #059669;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">Fly Me – Test Chat</div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <div class="chat-input">
+        <textarea
+          id="chat-input"
+          placeholder="Type your message..."
+        ></textarea>
+        <button id="chat-send">Send</button>
+      </div>
+    </div>
+
+    <script>
+      // ✅ CORRECTION : Utilisation d'un chemin relatif (plus de problème de port 8080)
+      const apiPath = "/v1/chat/message";
+      let sessionId = crypto.randomUUID ? crypto.randomUUID() : "sess-" + Date.now();
+
+      const messagesEl = document.getElementById("chat-messages");
+      const inputEl = document.getElementById("chat-input");
+      const sendBtn = document.getElementById("chat-send");
+
+      function addMessage(text, type) {
+        const div = document.createElement("div");
+        div.className = "msg " + (type === "user" ? "msg-user" : "msg-bot");
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      async function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = "";
+
+        addMessage(text, "user");
+
+        try {
+          // ✅ CORRECTION : Appel direct au serveur local
+          const res = await fetch(apiPath, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              session_id: sessionId,
+              text: text
+            })
+          });
+
+          if (!res.ok) throw new Error("Server error");
+
+          const data = await res.json();
+          if (data && data.text) {
+            addMessage(data.text, "bot");
+          } else {
+            addMessage("Unexpected server response.", "bot");
+          }
+        } catch (e) {
+          console.error("Fetch error:", e);
+          addMessage("Network error: Backend unavailable on port 8000.", "bot");
+        }
+      }
+
+      sendBtn.addEventListener("click", sendMessage);
+      inputEl.addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // Initial bot greeting
+      addMessage(
+        "Hi! I’m the Fly Me assistant. Tell me your departure city, destination, dates, and max budget.",
+        "bot"
+      );
+    </script>
+  </body>
+</html>

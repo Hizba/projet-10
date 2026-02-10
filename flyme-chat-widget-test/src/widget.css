@@ -1,0 +1,145 @@
+/* Floating bubble */
+#flyme-chat-bubble {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #25d366; /* WhatsApp green style */
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#flyme-chat-bubble::before {
+  content: "✈";
+  color: #ffffff;
+  font-size: 24px;
+}
+
+/* Chat panel */
+#flyme-chat-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  width: 380px;
+  max-height: 520px;
+  background: #f0f2f5; /* WhatsApp bg style */
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.flyme-chat-hidden {
+  display: none;
+}
+
+/* Header */
+.flyme-chat-header {
+  padding: 10px 12px;
+  background: #075e54;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flyme-chat-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.flyme-chat-close {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* Messages area */
+.flyme-chat-messages {
+  flex: 1;
+  padding: 8px 10px;
+  overflow-y: auto;
+  background: #e5ddd5; /* WhatsApp chat background */
+}
+
+/* Message bubbles */
+.flyme-chat-message {
+  max-width: 80%;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  clear: both;
+}
+
+.flyme-chat-message-user {
+  background: #dcf8c6;
+  color: #111827;
+  margin-left: auto;
+  border-bottom-right-radius: 2px;
+}
+
+.flyme-chat-message-bot {
+  background: #ffffff;
+  color: #111827;
+  margin-right: auto;
+  border-bottom-left-radius: 2px;
+}
+
+/* Typing indicator */
+.flyme-chat-typing {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #555;
+}
+
+/* Input bar (WhatsApp-like) */
+.flyme-chat-input {
+  padding: 6px;
+  background: #f0f2f5;
+  border-top: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flyme-chat-input textarea {
+  flex: 1;
+  resize: none;
+  height: 38px;
+  max-height: 80px;
+  font-size: 14px;
+  border-radius: 20px;
+  border: none;
+  padding: 8px 12px;
+  outline: none;
+  background: #ffffff;
+}
+
+/* Send button */
+.flyme-chat-input button.flyme-chat-send {
+  min-width: 64px;
+  height: 34px;
+  border-radius: 18px;
+  border: none;
+  cursor: pointer;
+  background: #25d366;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 12px;
+}
+
+.flyme-chat-input button.flyme-chat-send:hover {
+  background: #1ebe5b;
+}
