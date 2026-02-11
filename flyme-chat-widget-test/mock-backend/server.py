@@ -130,7 +130,9 @@ async def chat_message(msg: ChatMessage):
     )
 
     try:
-        # Create session if needed
+        # ============================
+        # SESSION HANDLING
+        # ============================
         if msg.session_id not in sessions:
             sessions[msg.session_id] = FlyMeAgent()
 
@@ -148,25 +150,26 @@ async def chat_message(msg: ChatMessage):
         agent = sessions[msg.session_id]
         response = agent.process_message(msg.text)
 
+        # ============================
+        # BUSINESS EVENTS
+        # ============================
+        if response.get("confirmation_refused") is True:
+            logger.warning(
+                "Booking confirmation refused",
+                extra={
+                    "json_fields": {
+                        "event_type": "confirmation_refused",
+                        "session_id": msg.session_id
+                    }
+                }
+            )
+
+        # ============================
+        # FALLBACK DETECTION (REAL ONLY)
+        # ============================
         is_fallback = (
             "sorry" in response["text"].lower()
             or "don't understand" in response["text"].lower()
-            or not response["complete"]
-        )
-
-        logger.info(
-            "Bot response generated",
-            extra={
-                "json_fields": {
-                    "event_type": "bot_response",
-                    "session_id": msg.session_id,
-                    "is_fallback": is_fallback,
-                    "is_complete": response["complete"],
-                    "missing_info_count": len(response["missing_info"]),
-                    "response_length": len(response["text"]),
-                    "booking_created": response.get("booking_id") is not None
-                }
-            }
         )
 
         if is_fallback:
@@ -182,6 +185,27 @@ async def chat_message(msg: ChatMessage):
                 }
             )
 
+        # ============================
+        # BOT RESPONSE LOG (GENERIC)
+        # ============================
+        logger.info(
+            "Bot response generated",
+            extra={
+                "json_fields": {
+                    "event_type": "bot_response",
+                    "session_id": msg.session_id,
+                    "is_fallback": is_fallback,
+                    "is_complete": response["complete"],
+                    "missing_info_count": len(response["missing_info"]),
+                    "response_length": len(response["text"]),
+                    "booking_created": response.get("booking_id") is not None
+                }
+            }
+        )
+
+        # ============================
+        # API RESPONSE
+        # ============================
         return {
             "session_id": msg.session_id,
             "reply_id": str(uuid.uuid4()),
