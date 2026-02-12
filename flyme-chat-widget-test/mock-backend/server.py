@@ -21,14 +21,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # 🔒 Ajuste en prod si besoin
+    allow_origins=["*"],  # ⚠️ Restreindre en production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ============================================================
-# GOOGLE CLOUD LOGGING (PRODUCTION SAFE)
+# GOOGLE CLOUD LOGGING
 # ============================================================
 
 try:
@@ -45,11 +45,10 @@ try:
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
 
-    # ⛔ évite doublons de handlers
     if not any(isinstance(h, type(gcloud_handler)) for h in root_logger.handlers):
         root_logger.addHandler(gcloud_handler)
 
-    logging.info("✅ Google Cloud Logging connected (HTTP Sync mode)")
+    logging.info("✅ Google Cloud Logging connected")
 
 except Exception as e:
     logging.basicConfig(level=logging.INFO)
@@ -65,7 +64,7 @@ BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = (BASE_DIR.parent / "public").resolve()
 
 # ============================================================
-# SESSION STORAGE (IN-MEMORY)
+# SESSION STORAGE (IN MEMORY)
 # ============================================================
 
 sessions: Dict[str, FlyMeAgent] = {}
@@ -75,21 +74,15 @@ sessions: Dict[str, FlyMeAgent] = {}
 # ============================================================
 
 class ChatMessage(BaseModel):
-    session_id: str
+    session_id: str | None = None
     text: str
 
 # ============================================================
-# STARTUP EVENT (EXECUTED ONCE)
+# STARTUP EVENT
 # ============================================================
 
 @app.on_event("startup")
 async def startup_event():
-    print("\n" + "=" * 60)
-    print("🚀 FLYME CHATBOT SERVER STARTED (PROD)")
-    print(f"📁 BASE_DIR   : {BASE_DIR}")
-    print(f"📁 PUBLIC_DIR : {PUBLIC_DIR}")
-    print(f"📄 index.html : {(PUBLIC_DIR / 'index.html').exists()}")
-    print("=" * 60 + "\n")
 
     logger.info(
         "Server startup",
@@ -114,59 +107,85 @@ async def serve_index():
 async def serve_index_file():
     return FileResponse(PUBLIC_DIR / "index.html")
 
+
 @app.post("/v1/chat/message")
 async def chat_message(msg: ChatMessage):
 
-    logger.info(
-        "User message received",
-        extra={
-            "json_fields": {
-                "event_type": "user_message",
-                "session_id": msg.session_id,
-                "message_length": len(msg.text),
-                "message_preview": msg.text[:100]
-            }
-        }
-    )
-
     try:
-        # ============================
-        # SESSION HANDLING
-        # ============================
-        if msg.session_id not in sessions:
-            sessions[msg.session_id] = FlyMeAgent()
+        # ===================================================
+        # SESSION ID SAFETY
+        # ===================================================
+        session_id = msg.session_id
+
+        if not session_id or session_id == "unknown":
+            session_id = str(uuid.uuid4())
+
+            logger.info(
+                "Session auto-generated",
+                extra={
+                    "json_fields": {
+                        "event_type": "session_auto_created",
+                        "session_id": session_id
+                    }
+                }
+            )
+
+        # ===================================================
+        # USER MESSAGE LOG
+        # ===================================================
+        logger.info(
+            "User message received",
+            extra={
+                "json_fields": {
+                    "event_type": "user_message",
+                    "session_id": session_id,
+                    "message_length": len(msg.text),
+                    "message_preview": msg.text[:100]
+                }
+            }
+        )
+
+        # ===================================================
+        # SESSION CREATION
+        # ===================================================
+        if session_id not in sessions:
+            sessions[session_id] = FlyMeAgent()
 
             logger.info(
                 "Session created",
                 extra={
                     "json_fields": {
                         "event_type": "session_created",
-                        "session_id": msg.session_id,
+                        "session_id": session_id,
                         "active_sessions": len(sessions)
                     }
                 }
             )
 
-        agent = sessions[msg.session_id]
+        agent = sessions[session_id]
+
+        # ===================================================
+        # PROCESS MESSAGE
+        # ===================================================
         response = agent.process_message(msg.text)
 
-        # ============================
+        # ===================================================
         # BUSINESS EVENTS
-        # ============================
-        if response.get("confirmation_refused") is True:
+        # ===================================================
+        if response.get("confirmation_refused"):
             logger.warning(
                 "Booking confirmation refused",
                 extra={
                     "json_fields": {
                         "event_type": "confirmation_refused",
-                        "session_id": msg.session_id
+                        "session_id": session_id
                     }
                 }
             )
 
-        # ============================
-        # FALLBACK DETECTION (REAL ONLY)
-        # ============================
+        # ===================================================
+        # FALLBACK DETECTION
+        # ===================================================
         is_fallback = (
             "sorry" in response["text"].lower()
             or "don't understand" in response["text"].lower()
@@ -178,36 +197,35 @@ async def chat_message(msg: ChatMessage):
                 extra={
                     "json_fields": {
                         "event_type": "fallback",
-                        "session_id": msg.session_id,
+                        "session_id": session_id,
                         "user_input": msg.text[:300],
                         "bot_response": response["text"][:300]
                     }
                 }
             )
 
-        # ============================
-        # BOT RESPONSE LOG (GENERIC)
-        # ============================
+        # ===================================================
+        # BOT RESPONSE LOG
+        # ===================================================
         logger.info(
             "Bot response generated",
             extra={
                 "json_fields": {
                     "event_type": "bot_response",
-                    "session_id": msg.session_id,
+                    "session_id": session_id,
                     "is_fallback": is_fallback,
                     "is_complete": response["complete"],
                     "missing_info_count": len(response["missing_info"]),
                     "response_length": len(response["text"]),
-                    "booking_created": response.get("booking_id") is not None
                 }
             }
         )
 
-        # ============================
-        # API RESPONSE
-        # ============================
+        # ===================================================
+        # RETURN API RESPONSE
+        # ===================================================
         return {
-            "session_id": msg.session_id,
+            "session_id": session_id,
             "reply_id": str(uuid.uuid4()),
             "text": response["text"],
             "slots": response["slots"],
@@ -230,6 +248,7 @@ async def chat_message(msg: ChatMessage):
         )
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
 @app.get("/v1/health")
 async def health():
     return {
@@ -238,7 +257,7 @@ async def health():
     }
 
 # ============================================================
-# STATIC FILES (LAST)
+# STATIC FILES
 # ============================================================
 
 app.mount("/", StaticFiles(directory=str(PUBLIC_DIR)), name="static")
